@@ -5,21 +5,65 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-st.set_page_config(page_title="Call Center Queue & Cost Simulator")
+# --- PAGE CONFIGURATION ---
+st.set_page_config(
+    page_title="Advanced Call Center Simulator",
+    page_icon="📞",
+    layout="wide"
+)
 
-st.title("📞 Advanced Call Center Operations Simulator")
-st.markdown("A simulation model featuring **Time-Varying Peak Hours** and **Cost-Service Trade-off Analysis**.")
+# --- CUSTOM CSS STYLING FOR A LUXURY DASHBOARD ---
+st.markdown("""
+    <style>
+    .main {
+        background-color: #0e1117;
+    }
+    .stMetric {
+        background-color: #161b22;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #30363d;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .stMetric label {
+        color: #8b949e !important;
+        font-weight: 600 !important;
+    }
+    .stMetric [data-testid="stMetricValue"] {
+        color: #58a6ff !important;
+    }
+    h1, h2, h3 {
+        color: #f0f6fc;
+    }
+    .highlight-box {
+        background-color: #21262d;
+        padding: 20px;
+        border-radius: 12px;
+        border-left: 5px solid #238636;
+        margin-bottom: 20px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- MAIN TITLE & HEADER ---
+st.title("📞 Advanced Call Center Operations & Economic Simulator")
+st.markdown("""
+<div class="highlight-box">
+    <b>System Overview:</b> This simulation model evaluates stochastic queueing dynamics featuring <b>Time-Varying Peak Hours</b> 
+    and a comprehensive <b>Cost-Service Trade-off Analysis</b> to optimize operational staffing and minimize customer loss.
+</div>
+""", unsafe_allow_html=True)
 
 # --- SIDEBAR CONTROLS ---
-st.sidebar.header("⚙️ Simulation Settings")
-num_agents = st.sidebar.slider("Number of Support Agents (c)", 1, 20, 5, 1)
-base_arrival_rate = st.sidebar.slider("Base Call Arrival Rate (calls/min)", 1.0, 30.0, 8.0, 1.0)
-service_time = st.sidebar.slider("Average Service Time (minutes)", 1.0, 10.0, 3.0, 0.5)
-sim_duration = st.sidebar.slider("Simulation Duration (minutes)", 60, 720, 240, 60)
+st.sidebar.header("⚙️ Simulation Controls")
+num_agents = st.sidebar.slider("Number of Support Agents (c)", 1, 30, 8, 1)
+base_arrival_rate = st.sidebar.slider("Base Call Arrival Rate (calls/min)", 1.0, 40.0, 10.0, 1.0)
+service_time = st.sidebar.slider("Average Service Time (minutes)", 1.0, 10.0, 2.5, 0.5)
+sim_duration = st.sidebar.slider("Simulation Duration (minutes)", 60, 720, 300, 60)
 
 st.sidebar.header("💰 Economic Parameters")
-agent_cost_per_hr = st.sidebar.slider("Agent Wage ($/hour)", 10, 50, 20, 5)
-loss_cost_per_call = st.sidebar.slider("Estimated Loss per Lost Call ($)", 5, 100, 30, 5)
+agent_cost_per_hr = st.sidebar.slider("Agent Wage ($/hour)", 10, 60, 25, 5)
+loss_cost_per_call = st.sidebar.slider("Estimated Loss per Lost Call ($)", 5, 150, 40, 5)
 
 # --- SIMULATION CORE WITH PEAK HOURS ---
 def run_advanced_simulation(sim_time, base_lam, serv_time, c):
@@ -37,8 +81,7 @@ def run_advanced_simulation(sim_time, base_lam, serv_time, c):
         nonlocal served_calls
         arrival_time = env.now
         with agents.request() as req:
-            # Wait for an agent
-            results = yield req | env.timeout(random.uniform(2, 5)) # patience threshold simulation
+            results = yield req | env.timeout(random.uniform(2, 6)) # patience threshold simulation
             if req in results:
                 wait = env.now - arrival_time
                 wait_times.append(wait)
@@ -46,7 +89,6 @@ def run_advanced_simulation(sim_time, base_lam, serv_time, c):
                 dur = random.expovariate(1.0 / serv_time)
                 yield env.timeout(dur)
             else:
-                # Customer hung up due to waiting
                 nonlocal abandoned_calls
                 abandoned_calls += 1
 
@@ -54,9 +96,8 @@ def run_advanced_simulation(sim_time, base_lam, serv_time, c):
         nonlocal total_calls
         i = 0
         while True:
-            # Time-varying arrival rate (Peak Hours Simulation: peak in the middle)
             current_time = env.now
-            peak_factor = 1.0 + 1.5 * np.sin(np.pi * current_time / sim_time)
+            peak_factor = 1.0 + 1.8 * np.sin(np.pi * current_time / sim_time)
             current_lam = max(1.0, base_lam * peak_factor)
             
             interarrival = random.expovariate(current_lam)
@@ -72,8 +113,13 @@ def run_advanced_simulation(sim_time, base_lam, serv_time, c):
     
     return wait_times, queue_lengths, time_stamps, total_calls, served_calls, abandoned_calls
 
-if st.button("▶️ Run Call Center Simulation"):
-    with st.spinner("Simulating call center traffic and peak hours..."):
+# --- ACTION BUTTON ---
+col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+with col_btn2:
+    run_btn = st.button("🚀 Run Advanced Simulation", use_container_width=True)
+
+if run_btn:
+    with st.spinner("🔄 Running stochastic simulation and analyzing peak workloads..."):
         random.seed(42)
         waits, q_lens, t_stamps, total_c, served_c, abandoned_c = run_advanced_simulation(
             sim_duration, base_arrival_rate, service_time, num_agents
@@ -87,30 +133,51 @@ if st.button("▶️ Run Call Center Simulation"):
         loss_cost = abandoned_c * loss_cost_per_call
         total_economic_cost = operational_cost + loss_cost
 
-        # --- RESULTS DASHBOARD ---
+        # --- SECTION 1: KPIS ---
+        st.markdown("---")
         st.markdown("### 📊 Key Performance Indicators (KPIs)")
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total Calls Received", f"{total_c}")
-        col2.metric("Successfully Served", f"{served_c}")
-        col3.metric("Abandoned Calls", f"{abandoned_c}", delta_color="inverse")
-        col4.metric("Avg Waiting Time", f"{avg_wait:.2f} min")
+        
+        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        with kpi1:
+            st.metric("Total Calls Received", f"{total_c:,}")
+        with kpi2:
+            st.metric("Successfully Served", f"{served_c:,}")
+        with kpi3:
+            st.metric("Abandoned Calls", f"{abandoned_c:,}")
+        with kpi4:
+            st.metric("Avg Waiting Time", f"{avg_wait:.2f} min")
 
-        st.markdown("### 💵 Cost vs. Service Analysis")
-        c_col1, c_col2, c_col3 = st.columns(3)
-        c_col1.metric("Staff Operational Cost", f"${operational_cost:.2f}")
-        c_col2.metric("Customer Loss Cost", f"${loss_cost:.2f}")
-        c_col3.metric("Total Economic Impact", f"${total_economic_cost:.2f}")
+        # --- SECTION 2: COST VS SERVICE ---
+        st.markdown("### 💵 Cost vs. Service Trade-off Analysis")
+        
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("Staff Operational Cost", f"${operational_cost:,.2f}")
+        with c2:
+            st.metric("Customer Loss Cost", f"${loss_cost:,.2f}")
+        with c3:
+            st.metric("Total Economic Impact", f"${total_economic_cost:,.2f}")
 
-        # --- VISUALIZATION ---
-        st.markdown("### 📈 Queue Length Dynamics (Peak Hours Wave)")
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.plot(t_stamps, q_lens, color='#2ca02c', linewidth=1.5, label='Callers Waiting')
-        ax.set_xlabel("Simulation Time (Minutes)")
-        ax.set_ylabel("Number of Waiting Customers")
-        ax.grid(True, linestyle='--', alpha=0.6)
-        ax.legend()
+        # --- SECTION 3: ADVANCED VISUALIZATION ---
+        st.markdown("---")
+        st.markdown("### 📈 Queue Length Dynamics & Peak Hours Wave")
+        
+        fig, ax = plt.subplots(figsize=(11, 4.5))
+        fig.patch.set_facecolor('#0e1117')
+        ax.set_facecolor('#161b22')
+        
+        ax.plot(t_stamps, q_lens, color='#58a6ff', linewidth=1.8, label='Queue Length (Callers Waiting)')
+        ax.set_xlabel("Simulation Time (Minutes)", color='#f0f6fc', fontsize=11)
+        ax.set_ylabel("Number of Waiting Customers", color='#f0f6fc', fontsize=11)
+        ax.tick_params(colors='#8b949e', labelsize=10)
+        ax.grid(True, linestyle='--', alpha=0.3, color='#30363d')
+        ax.legend(facecolor='#161b22', edgecolor='#30363d', labelcolor='#f0f6fc')
+        
+        for spine in ax.spines.values():
+            spine.set_color('#30363d')
+            
         st.pyplot(fig)
         
-        st.success("✨ Call center peak simulation completed successfully!")
+        st.success("✨ Simulation executed successfully with updated styling and metrics!")
 else:
-    st.info("👈 Adjust your parameters in the sidebar and click **'Run Call Center Simulation'**.")
+    st.info("👈 Configure your parameters in the sidebar and click **'Run Advanced Simulation'** above to generate the dashboard.")
