@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CUSTOM CSS STYLING FOR A LUXURY DASHBOARD ---
+# --- CUSTOM CSS STYLING ---
 st.markdown("""
     <style>
     .main {
@@ -49,21 +49,45 @@ st.markdown("""
 st.title("📞 Advanced Call Center Operations & Economic Simulator")
 st.markdown("""
 <div class="highlight-box">
-    <b>System Overview:</b> This simulation model evaluates stochastic queueing dynamics featuring <b>Time-Varying Peak Hours</b> 
-    and a comprehensive <b>Cost-Service Trade-off Analysis</b> to optimize operational staffing and minimize customer loss.
+    <b>Applied Probability & Queueing Theory Project:</b> Featuring <b>M/M/c Model</b>, 
+    <b>Time-Varying Poisson Arrivals (Peak Hours)</b>, and <b>Cost-Service Trade-off Optimization</b> (Currencies in SAR).
 </div>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR CONTROLS ---
-st.sidebar.header("⚙️ Simulation Controls")
-num_agents = st.sidebar.slider("Number of Support Agents (c)", 1, 30, 8, 1)
-base_arrival_rate = st.sidebar.slider("Base Call Arrival Rate (calls/min)", 1.0, 40.0, 10.0, 1.0)
-service_time = st.sidebar.slider("Average Service Time (minutes)", 1.0, 10.0, 2.5, 0.5)
-sim_duration = st.sidebar.slider("Simulation Duration (minutes)", 60, 720, 300, 60)
+# --- SIDEBAR CONTROLS WITH STATISTICAL LAWS ---
+st.sidebar.header("⚙️ Simulation Controls (Queueing Parameters)")
 
-st.sidebar.header("💰 Economic Parameters")
-agent_cost_per_hr = st.sidebar.slider("Agent Wage ($/hour)", 10, 60, 25, 5)
-loss_cost_per_call = st.sidebar.slider("Estimated Loss per Lost Call ($)", 5, 150, 40, 5)
+num_agents = st.sidebar.slider(
+    "Number of Support Agents [c (Servers)]", 
+    1, 500, 25, 1
+)
+
+base_arrival_rate = st.sidebar.slider(
+    "Base Call Arrival Rate [Poisson Process - λ]", 
+    1.0, 100.0, 15.0, 1.0
+)
+
+service_time = st.sidebar.slider(
+    "Average Service Time [Exponential Service - 1/μ]", 
+    1.0, 10.0, 2.5, 0.5
+)
+
+sim_duration = st.sidebar.slider(
+    "Simulation Duration [Time Horizon - T]", 
+    60, 720, 300, 60
+)
+
+st.sidebar.header("💰 Economic Parameters (Cost Analysis in SAR)")
+
+agent_cost_per_hr = st.sidebar.slider(
+    "Agent Wage [Operational Cost Rate - C_w] (SAR/hour)", 
+    10, 200, 40, 5
+)
+
+loss_cost_per_call = st.sidebar.slider(
+    "Estimated Loss per Lost Call [Penalty Cost - C_l] (SAR)", 
+    5, 500, 50, 5
+)
 
 # --- SIMULATION CORE WITH PEAK HOURS ---
 def run_advanced_simulation(sim_time, base_lam, serv_time, c):
@@ -81,7 +105,7 @@ def run_advanced_simulation(sim_time, base_lam, serv_time, c):
         nonlocal served_calls
         arrival_time = env.now
         with agents.request() as req:
-            results = yield req | env.timeout(random.uniform(2, 6)) # patience threshold simulation
+            results = yield req | env.timeout(random.uniform(2, 6)) # Exponential/Uniform patience threshold
             if req in results:
                 wait = env.now - arrival_time
                 wait_times.append(wait)
@@ -97,6 +121,7 @@ def run_advanced_simulation(sim_time, base_lam, serv_time, c):
         i = 0
         while True:
             current_time = env.now
+            # Non-homogeneous Poisson Process wave for peak hours
             peak_factor = 1.0 + 1.8 * np.sin(np.pi * current_time / sim_time)
             current_lam = max(1.0, base_lam * peak_factor)
             
@@ -119,7 +144,7 @@ with col_btn2:
     run_btn = st.button("🚀 Run Advanced Simulation", use_container_width=True)
 
 if run_btn:
-    with st.spinner("🔄 Running stochastic simulation and analyzing peak workloads..."):
+    with st.spinner("🔄 Running stochastic process simulation & evaluating queue metrics..."):
         random.seed(42)
         waits, q_lens, t_stamps, total_c, served_c, abandoned_c = run_advanced_simulation(
             sim_duration, base_arrival_rate, service_time, num_agents
@@ -127,7 +152,7 @@ if run_btn:
         
         avg_wait = sum(waits) / len(waits) if len(waits) > 0 else 0
         
-        # Financial calculations
+        # Financial & Statistical calculations
         sim_hours = sim_duration / 60.0
         operational_cost = num_agents * agent_cost_per_hr * sim_hours
         loss_cost = abandoned_c * loss_cost_per_call
@@ -135,40 +160,40 @@ if run_btn:
 
         # --- SECTION 1: KPIS ---
         st.markdown("---")
-        st.markdown("### 📊 Key Performance Indicators (KPIs)")
+        st.markdown("### 📊 Key Performance Indicators (Queueing Metrics)")
         
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
         with kpi1:
-            st.metric("Total Calls Received", f"{total_c:,}")
+            st.metric("Total Calls Received [N]", f"{total_c:,}")
         with kpi2:
-            st.metric("Successfully Served", f"{served_c:,}")
+            st.metric("Successfully Served [Throughput]", f"{served_c:,}")
         with kpi3:
-            st.metric("Abandoned Calls", f"{abandoned_c:,}")
+            st.metric("Abandoned Calls [Reneging Model]", f"{abandoned_c:,}")
         with kpi4:
-            st.metric("Avg Waiting Time", f"{avg_wait:.2f} min")
+            st.metric("Avg Waiting Time [W_q]", f"{avg_wait:.2f} min")
 
         # --- SECTION 2: COST VS SERVICE ---
-        st.markdown("### 💵 Cost vs. Service Trade-off Analysis")
+        st.markdown("### 💵 Cost vs. Service Trade-off Analysis (Optimization in SAR)")
         
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.metric("Staff Operational Cost", f"${operational_cost:,.2f}")
+            st.metric("Staff Operational Cost [c × Wage]", f"{operational_cost:,.2f} SAR")
         with c2:
-            st.metric("Customer Loss Cost", f"${loss_cost:,.2f}")
+            st.metric("Customer Loss Cost [Abandoned × Penalty]", f"{loss_cost:,.2f} SAR")
         with c3:
-            st.metric("Total Economic Impact", f"${total_economic_cost:,.2f}")
+            st.metric("Total Economic Impact [Objective Function]", f"{total_economic_cost:,.2f} SAR")
 
         # --- SECTION 3: ADVANCED VISUALIZATION ---
         st.markdown("---")
-        st.markdown("### 📈 Queue Length Dynamics & Peak Hours Wave")
+        st.markdown("### 📈 Queue Length Dynamics [Stochastic Process L_q(t)]")
         
         fig, ax = plt.subplots(figsize=(11, 4.5))
         fig.patch.set_facecolor('#0e1117')
         ax.set_facecolor('#161b22')
         
-        ax.plot(t_stamps, q_lens, color='#58a6ff', linewidth=1.8, label='Queue Length (Callers Waiting)')
-        ax.set_xlabel("Simulation Time (Minutes)", color='#f0f6fc', fontsize=11)
-        ax.set_ylabel("Number of Waiting Customers", color='#f0f6fc', fontsize=11)
+        ax.plot(t_stamps, q_lens, color='#58a6ff', linewidth=1.8, label='Queue Length Process [L_q(t)]')
+        ax.set_xlabel("Simulation Time (Minutes) [t]", color='#f0f6fc', fontsize=11)
+        ax.set_ylabel("Number of Waiting Customers [L_q]", color='#f0f6fc', fontsize=11)
         ax.tick_params(colors='#8b949e', labelsize=10)
         ax.grid(True, linestyle='--', alpha=0.3, color='#30363d')
         ax.legend(facecolor='#161b22', edgecolor='#30363d', labelcolor='#f0f6fc')
@@ -178,6 +203,6 @@ if run_btn:
             
         st.pyplot(fig)
         
-        st.success("✨ Simulation executed successfully with updated styling and metrics!")
+        st.success("✨ Simulation executed successfully with SAR currencies and expanded agent capacity!")
 else:
     st.info("👈 Configure your parameters in the sidebar and click **'Run Advanced Simulation'** above to generate the dashboard.")
